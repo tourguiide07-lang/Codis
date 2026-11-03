@@ -23,7 +23,14 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient());
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onPermissionRequest(PermissionRequest request) {
-                if (Build.VERSION.SDK_INT >= 21) request.grant(request.getResources());
+                if (Build.VERSION.SDK_INT >= 21
+                    && checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                    && request.getResources().length == 1
+                    && PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(request.getResources()[0])) {
+                    request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                } else {
+                    request.deny();
+                }
             }
         });
         setContentView(web);
