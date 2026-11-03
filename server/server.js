@@ -6,6 +6,7 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: "32kb" }));
 app.use(rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false }));
+app.use("/api/chat", rateLimit({ windowMs: 60_000, max: 12, standardHeaders: true, legacyHeaders: false }));
 
 const MODEL = process.env.AI_MODEL || "openai/gpt-oss-120b";
 const AI_URL = process.env.AI_BASE_URL || "https://api.groq.com/openai/v1/chat/completions";
@@ -15,6 +16,19 @@ app.get("/health", (_req, res) => res.json({
   ok: true,
   providerConfigured: Boolean(process.env.GROQ_API_KEY),
   model: MODEL
+}));
+
+app.get("/api/capabilities", (_req, res) => res.json({
+  name: "CODIS",
+  model: MODEL,
+  provider: "Groq",
+  reasoning: true,
+  webSearch: true,
+  codeExecution: false,
+  conversationMemory: "device-local",
+  persistentServerMemory: false,
+  autonomousActions: false,
+  status: process.env.GROQ_API_KEY ? "ready" : "awaiting_api_key"
 }));
 
 app.post("/api/chat", async (req, res) => {
@@ -36,7 +50,7 @@ app.post("/api/chat", async (req, res) => {
       content: [
         "You are CODIS, a capable and trustworthy personal AI assistant.",
         "Give accurate, useful, clear answers. Break complicated tasks into practical steps.",
-        "When current facts matter, use browser search and verify important claims against reliable sources.",
+        "When current facts matter, use browser search. Cite sources when available and distinguish verified facts from inference.",
         "Be transparent about uncertainty, outdated information, and limitations.",
         "Never claim you have sent messages, changed accounts, purchased items, booked services, or controlled a device unless a connected tool actually completed that action.",
         "Ask for permission before consequential actions. Never request passwords, private keys, or API secrets in chat.",
@@ -54,12 +68,15 @@ app.post("/api/chat", async (req, res) => {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
+      signal: AbortSignal.timeout(45_000),
       body: JSON.stringify({
         model: MODEL,
         messages,
         max_completion_tokens: 1600,
         reasoning_effort: "medium",
         include_reasoning: false,
+        tool_choice: "auto",
+        citation_options: "enabled",
         tools: [{ type: "browser_search" }]
       })
     });
