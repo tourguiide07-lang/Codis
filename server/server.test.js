@@ -52,3 +52,32 @@ test("chat endpoint gives a clear setup response when no provider key exists", a
   assert.equal(response.status, 503);
   assert.match(data.error, /GROQ_API_KEY/);
 });
+
+test("security headers are present on API responses", async () => {
+  const response = await fetch(`${baseUrl}/health`);
+  assert.equal(response.headers.get("x-powered-by"), null);
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
+});
+
+test("chat endpoint rejects an empty message", async () => {
+  const response = await fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "   " })
+  });
+  const data = await response.json();
+  assert.equal(response.status, 400);
+  assert.match(data.error, /Message is required/);
+});
+
+test("chat endpoint rejects oversized messages", async () => {
+  const response = await fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "x".repeat(8001) })
+  });
+  const data = await response.json();
+  assert.equal(response.status, 413);
+  assert.match(data.error, /too long/i);
+});
