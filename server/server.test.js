@@ -151,5 +151,6 @@ test("Android WebView CORS preflight allows the chat request headers", async () 
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("access-control-allow-origin"), "null");
   assert.match(response.headers.get("access-control-allow-methods") || "", /POST/);
-  assert.match(response.headers.get("access-control-allow-headers") || "", /Content-Type/i);\n  assert.match(response.headers.get("access-control-allow-headers") || "", /Authorization/i);
+  assert.match(response.headers.get("access-control-allow-headers") || "", /Content-Type/i);
+  assert.match(response.headers.get("access-control-allow-headers") || "", /Authorization/i);
 });
