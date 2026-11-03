@@ -14,6 +14,15 @@ main{max-width:650px;margin:auto;padding:22px 16px 40px}.eyebrow{text-align:cent
 </style></head><body><main>
 <div class="eyebrow">PERSONAL AI • ANDROID READY WEB STARTER</div><h1>CODIS</h1><div class="tag">MALE VOICE • CONVERSATIONAL AI</div>
 <div class="orb"><span>◉</span></div><div id="status">CODIS interface ready • connect backend in settings</div>
+<section class="panel" id="authPanel">
+<strong>CODIS account</strong><div class="hint" id="authStatus">Sign in or create an account to use CODIS.</div>
+<input id="authUrl" placeholder="Supabase project URL (https://….supabase.co)" autocomplete="url">
+<input id="authKey" placeholder="Supabase publishable / anon key" autocomplete="off">
+<input id="email" type="email" placeholder="Email address" autocomplete="email">
+<input id="password" type="password" placeholder="Password (at least 8 characters)" autocomplete="current-password">
+<div class="controls"><button class="primary" id="login">Sign in</button><button id="signup">Create account</button><button id="logout">Sign out</button></div>
+<div class="hint">Your password is sent directly to Supabase over HTTPS and is not stored by CODIS. The public anon key is not a password; never enter a service-role key here.</div>
+</section>
 <section class="panel"><div id="chat"><div class="bubble assistant">Hello. I'm CODIS. Connect my secure AI server in Settings, then ask me anything.</div></div><div class="hint">Recent conversation memory: up to 40 messages saved privately in this browser on this device. Use Clear chat to erase it.</div>
 <div class="controls"><input id="message" placeholder="Message CODIS…" autocomplete="off"><button class="primary" id="send">Send</button></div>
 <div class="controls"><button id="mic">🎙 Speak</button><button id="stop">Stop voice</button><button id="clear">Clear chat</button></div></section>
@@ -26,13 +35,26 @@ main{max-width:650px;margin:auto;padding:22px 16px 40px}.eyebrow{text-align:cent
 <script>
 const $=s=>document.querySelector(s), chat=$('#chat'), input=$('#message'), status=$('#status');
 let history=[];
+let codisSession=null;
+function authConfig(){return {url:$('#authUrl').value.trim().replace(/\/$/,''),key:$('#authKey').value.trim()}}
+function saveAuthConfig(){const c=authConfig();localStorage.setItem('codis_supabase_url',c.url);localStorage.setItem('codis_supabase_key',c.key)}
+function updateAuthUI(){const signed=!!codisSession?.access_token;$('#authStatus').textContent=signed?'Signed in'+(codisSession.user?.email?' as '+codisSession.user.email:''):'Sign in or create an account to use CODIS.';$('#login').disabled=signed;$('#signup').disabled=signed;$('#logout').disabled=!signed}
+async function authRequest(path,body){const c=authConfig();if(!c.url||!c.key)throw Error('Enter your Supabase project URL and public anon/publishable key.');saveAuthConfig();const r=await fetch(c.url+'/auth/v1/'+path,{method:'POST',headers:{'Content-Type':'application/json',apikey:c.key},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.msg||d.message||d.error_description||d.error||'Authentication failed.');return d}
+async function signIn(){try{$('#authStatus').textContent='Signing in…';const d=await authRequest('token?grant_type=password',{email:$('#email').value.trim(),password:$('#password').value});if(!d.access_token)throw Error('Supabase did not return a login session.');codisSession=d;localStorage.setItem('codis_session',JSON.stringify(d));updateAuthUI();status.textContent='Signed in • CODIS ready'}catch(e){$('#authStatus').textContent=e.message}}
+async function signUp(){try{$('#authStatus').textContent='Creating account…';const d=await authRequest('signup',{email:$('#email').value.trim(),password:$('#password').value});if(d.access_token){codisSession=d;localStorage.setItem('codis_session',JSON.stringify(d));updateAuthUI();$('#authStatus').textContent='Account created and signed in.'}else{$('#authStatus').textContent='Account created. Check your email to confirm it, then sign in.'}}catch(e){$('#authStatus').textContent=e.message}}
+function signOut(){codisSession=null;localStorage.removeItem('codis_session');updateAuthUI();status.textContent='Signed out'}
+$('#login').onclick=signIn;$('#signup').onclick=signUp;$('#logout').onclick=signOut;
+try{codisSession=JSON.parse(localStorage.getItem('codis_session')||'null')}catch(e){codisSession=null}
+$('#authUrl').value=localStorage.getItem('codis_supabase_url')||'';
+$('#authKey').value=localStorage.getItem('codis_supabase_key')||'';
+updateAuthUI();
 function bubble(text,role){let d=document.createElement('div');d.className='bubble '+role;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
 function persistHistory(){try{localStorage.setItem('codis_history',JSON.stringify(history.slice(-40)))}catch(e){status.textContent='Local memory unavailable in this browser'}}
 function restoreHistory(){try{let saved=JSON.parse(localStorage.getItem('codis_history')||'[]');if(Array.isArray(saved)){history=saved.filter(m=>m&&['user','assistant'].includes(m.role)&&typeof m.content==='string').slice(-40);if(history.length){chat.innerHTML='';history.forEach(m=>bubble(m.content,m.role));status.textContent='CODIS ready • local memory restored'}}}catch(e){history=[]}}
 async function checkServer(){let base=$('#api').value.trim().replace(/\/$/,'');if(!base)return;status.textContent='Checking CODIS server…';try{let r=await fetch(base+'/health');if(!r.ok)throw Error('Health check failed');let d=await r.json();status.textContent=d.providerConfigured?'CODIS online • '+d.model:'Server online • add Groq API key to activate CODIS'}catch(e){status.textContent='CODIS server not reachable • check your connection'}}
 function say(text){if(!$('#voice').checked||!('speechSynthesis'in window))return;speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.lang='en-NZ';u.rate=.95;let vs=speechSynthesis.getVoices();let male=vs.find(v=>/male|daniel|david|james|alex|guy/i.test(v.name));if(male)u.voice=male;speechSynthesis.speak(u)}
 async function send(){let text=input.value.trim();if(!text)return;input.value='';bubble(text,'user');history.push({role:'user',content:text});persistHistory();$('#send').disabled=true;status.textContent='CODIS is thinking…';
-try{let base=$('#api').value.trim().replace(/\/$/,'');if(!base)throw Error('Open Settings and enter your CODIS server URL first.');let r=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(-12,-1)})});let data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');let reply=data.reply||'No reply received';bubble(reply,'assistant');history.push({role:'assistant',content:reply});persistHistory();say(reply);status.textContent='CODIS connected • ready';}
+try{let base=$('#api').value.trim().replace(/\/$/,'');if(!base)throw Error('Open Settings and enter your CODIS server URL first.');if(!codisSession?.access_token)throw Error('Please sign in to your CODIS account first.');let r=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+codisSession.access_token},body:JSON.stringify({message:text,history:history.slice(-12,-1)})});let data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');let reply=data.reply||'No reply received';bubble(reply,'assistant');history.push({role:'assistant',content:reply});persistHistory();say(reply);status.textContent='CODIS connected • ready';}
 catch(e){let m='Connection error: '+e.message;bubble(m,'assistant');status.textContent='Not connected';}
 finally{$('#send').disabled=false}}
 $('#send').onclick=send;input.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
