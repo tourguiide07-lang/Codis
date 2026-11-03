@@ -3,9 +3,17 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 
 const app = express();
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Permissions-Policy", "camera=(), geolocation=()");
+  next();
+});
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: "32kb" }));
-app.use(rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false }));
+// Limit only the AI endpoint so health checks and capability discovery remain available.
 app.use("/api/chat", rateLimit({ windowMs: 60_000, max: 12, standardHeaders: true, legacyHeaders: false }));
 
 const MODEL = process.env.AI_MODEL || "openai/gpt-oss-120b";
