@@ -106,3 +106,18 @@ test("malformed JSON receives a clean JSON error", async () => {
   assert.equal(response.status, 400);
   assert.match(data.error, /valid JSON/i);
 });
+
+
+test("chat endpoint enforces its per-client request limit", async () => {
+  let lastResponse;
+  for (let request = 0; request < 13; request += 1) {
+    lastResponse = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "rate-limit test" })
+    });
+  }
+  const data = await lastResponse.json();
+  assert.equal(lastResponse.status, 429);
+  assert.ok(data.error || lastResponse.headers.get("ratelimit-limit"));
+});
