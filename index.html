@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#06111e"><title>CODIS 2.0</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#143657,#050a12 68%);color:#e8f7ff;font:16px system-ui,sans-serif;min-height:100vh}
+main{max-width:650px;margin:auto;padding:22px 16px 40px}.eyebrow{text-align:center;color:#70cfff;font-size:12px;letter-spacing:.24em}h1{text-align:center;font-size:42px;letter-spacing:.12em;margin:6px 0;text-shadow:0 0 24px #00aaff}.tag{text-align:center;color:#8caec5;font-size:12px}
+.orb{width:142px;height:142px;border-radius:50%;margin:22px auto;display:grid;place-items:center;border:1px solid #46c7ff;background:radial-gradient(circle,#12618a,#0b2238 48%,#050a12 72%);box-shadow:0 0 32px #008bce55,inset 0 0 30px #00bfff35}.orb span{font-size:48px;color:#b9f4ff;text-shadow:0 0 20px #00cfff}
+#status{text-align:center;color:#8bdcff;font-size:13px;margin:12px}
+.panel{border:1px solid #1c405d;background:#071522d9;border-radius:18px;padding:14px;margin:12px 0}
+#chat{height:310px;overflow:auto;display:flex;flex-direction:column;gap:10px}.bubble{max-width:92%;padding:11px 13px;border-radius:14px;white-space:pre-wrap;line-height:1.45}.assistant{align-self:flex-start;background:#10283d;border:1px solid #214c6b}.user{align-self:flex-end;background:#07517a}
+.controls{display:flex;gap:8px;margin-top:10px}input,button{font:inherit;color:inherit;border:1px solid #24516e;border-radius:12px;padding:12px;background:#102236}input{min-width:0;flex:1}button{cursor:pointer}button.primary{background:#087fb8;border-color:#24baff;font-weight:600}button:disabled{opacity:.5}
+.settings{font-size:13px;color:#9bb4c8}.settings summary{cursor:pointer}.settings input{width:100%;margin:7px 0}.hint{font-size:12px;color:#86a2b8;margin-top:12px}.foot{text-align:center;color:#7895aa;font-size:11px;margin-top:18px}
+</style></head><body><main>
+<div class="eyebrow">PERSONAL AI • ANDROID READY WEB STARTER</div><h1>CODIS</h1><div class="tag">MALE VOICE • CONVERSATIONAL AI</div>
+<div class="orb"><span>◉</span></div><div id="status">CODIS interface ready • connect backend in settings</div>
+<section class="panel"><div id="chat"><div class="bubble assistant">Hello. I'm CODIS. Connect my secure AI server in Settings, then ask me anything.</div></div>
+<div class="controls"><input id="message" placeholder="Message CODIS…" autocomplete="off"><button class="primary" id="send">Send</button></div>
+<div class="controls"><button id="mic">🎙 Speak</button><button id="stop">Stop voice</button><button id="clear">Clear chat</button></div></section>
+<section class="panel settings"><details><summary>⚙️ CODIS connection & preferences</summary>
+<label for="api">Your CODIS server URL (example: https://your-server.example)</label><input id="api" placeholder="https://your-server.example">
+<label><input type="checkbox" id="voice" checked style="width:auto"> Speak replies aloud</label>
+<button id="save">Save settings on this device</button><p class="hint">The app sends your chat to the server you specify. Only enter a server you trust. Don't paste an OpenAI API key here.</p></details></section>
+<div class="foot">CODIS 2.0 starter • AI requires a configured server • Actions require Android permissions and integrations</div>
+</main>
+<script>
+const $=s=>document.querySelector(s), chat=$('#chat'), input=$('#message'), status=$('#status');
+let history=[];
+function bubble(text,role){let d=document.createElement('div');d.className='bubble '+role;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+function say(text){if(!$('#voice').checked||!('speechSynthesis'in window))return;speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.lang='en-NZ';u.rate=.95;let vs=speechSynthesis.getVoices();let male=vs.find(v=>/male|daniel|david|james|alex|guy/i.test(v.name));if(male)u.voice=male;speechSynthesis.speak(u)}
+async function send(){let text=input.value.trim();if(!text)return;input.value='';bubble(text,'user');history.push({role:'user',content:text});$('#send').disabled=true;status.textContent='CODIS is thinking…';
+try{let base=$('#api').value.trim().replace(/\/$/,'');if(!base)throw Error('Open Settings and enter your CODIS server URL first.');let r=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(-12,-1)})});let data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');let reply=data.reply||'No reply received';bubble(reply,'assistant');history.push({role:'assistant',content:reply});say(reply);status.textContent='CODIS connected • ready';}
+catch(e){let m='Connection error: '+e.message;bubble(m,'assistant');status.textContent='Not connected';}
+finally{$('#send').disabled=false}}
+$('#send').onclick=send;input.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+$('#stop').onclick=()=>speechSynthesis?.cancel();$('#clear').onclick=()=>{history=[];chat.innerHTML='';bubble('Chat cleared.','assistant')};
+$('#save').onclick=()=>{localStorage.setItem('codis_server',$('#api').value.trim());localStorage.setItem('codis_voice',$('#voice').checked?'1':'0');status.textContent='Preferences saved on this device'};
+$('#api').value=localStorage.getItem('codis_server')||'';$('#voice').checked=localStorage.getItem('codis_voice')!=='0';
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let recognition;
+if(SR){recognition=new SR();recognition.lang='en-NZ';recognition.interimResults=false;recognition.onstart=()=>status.textContent='Listening…';recognition.onresult=e=>{input.value=e.results[0][0].transcript;send()};recognition.onerror=e=>status.textContent='Mic error: '+e.error;recognition.onend=()=>{if(status.textContent==='Listening…')status.textContent='CODIS ready'}}
+$('#mic').onclick=()=>{if(recognition){try{recognition.start()}catch(e){status.textContent='Already listening'}}else status.textContent='Speech recognition unavailable in this browser; type instead.'};
+if('speechSynthesis'in window)speechSynthesis.getVoices();
+</script></body></html>
