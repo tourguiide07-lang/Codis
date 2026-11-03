@@ -14,7 +14,7 @@ main{max-width:650px;margin:auto;padding:22px 16px 40px}.eyebrow{text-align:cent
 </style></head><body><main>
 <div class="eyebrow">PERSONAL AI • ANDROID READY WEB STARTER</div><h1>CODIS</h1><div class="tag">MALE VOICE • CONVERSATIONAL AI</div>
 <div class="orb"><span>◉</span></div><div id="status">CODIS interface ready • connect backend in settings</div>
-<section class="panel"><div id="chat"><div class="bubble assistant">Hello. I'm CODIS. Connect my secure AI server in Settings, then ask me anything.</div></div>
+<section class="panel"><div id="chat"><div class="bubble assistant">Hello. I'm CODIS. Connect my secure AI server in Settings, then ask me anything.</div></div><div class="hint">Recent conversation memory: up to 40 messages saved privately in this browser on this device. Use Clear chat to erase it.</div>
 <div class="controls"><input id="message" placeholder="Message CODIS…" autocomplete="off"><button class="primary" id="send">Send</button></div>
 <div class="controls"><button id="mic">🎙 Speak</button><button id="stop">Stop voice</button><button id="clear">Clear chat</button></div></section>
 <section class="panel settings"><details><summary>⚙️ CODIS connection & preferences</summary>
@@ -27,15 +27,17 @@ main{max-width:650px;margin:auto;padding:22px 16px 40px}.eyebrow{text-align:cent
 const $=s=>document.querySelector(s), chat=$('#chat'), input=$('#message'), status=$('#status');
 let history=[];
 function bubble(text,role){let d=document.createElement('div');d.className='bubble '+role;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+function persistHistory(){try{localStorage.setItem('codis_history',JSON.stringify(history.slice(-40)))}catch(e){status.textContent='Local memory unavailable in this browser'}}
+function restoreHistory(){try{let saved=JSON.parse(localStorage.getItem('codis_history')||'[]');if(Array.isArray(saved)){history=saved.filter(m=>m&&['user','assistant'].includes(m.role)&&typeof m.content==='string').slice(-40);if(history.length){chat.innerHTML='';history.forEach(m=>bubble(m.content,m.role));status.textContent='CODIS ready • local memory restored'}}}catch(e){history=[]}}
 function say(text){if(!$('#voice').checked||!('speechSynthesis'in window))return;speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.lang='en-NZ';u.rate=.95;let vs=speechSynthesis.getVoices();let male=vs.find(v=>/male|daniel|david|james|alex|guy/i.test(v.name));if(male)u.voice=male;speechSynthesis.speak(u)}
-async function send(){let text=input.value.trim();if(!text)return;input.value='';bubble(text,'user');history.push({role:'user',content:text});$('#send').disabled=true;status.textContent='CODIS is thinking…';
-try{let base=$('#api').value.trim().replace(/\/$/,'');if(!base)throw Error('Open Settings and enter your CODIS server URL first.');let r=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(-12,-1)})});let data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');let reply=data.reply||'No reply received';bubble(reply,'assistant');history.push({role:'assistant',content:reply});say(reply);status.textContent='CODIS connected • ready';}
+async function send(){let text=input.value.trim();if(!text)return;input.value='';bubble(text,'user');history.push({role:'user',content:text});persistHistory();$('#send').disabled=true;status.textContent='CODIS is thinking…';
+try{let base=$('#api').value.trim().replace(/\/$/,'');if(!base)throw Error('Open Settings and enter your CODIS server URL first.');let r=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(-12,-1)})});let data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');let reply=data.reply||'No reply received';bubble(reply,'assistant');history.push({role:'assistant',content:reply});persistHistory();say(reply);status.textContent='CODIS connected • ready';}
 catch(e){let m='Connection error: '+e.message;bubble(m,'assistant');status.textContent='Not connected';}
 finally{$('#send').disabled=false}}
 $('#send').onclick=send;input.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
-$('#stop').onclick=()=>speechSynthesis?.cancel();$('#clear').onclick=()=>{history=[];chat.innerHTML='';bubble('Chat cleared.','assistant')};
+$('#stop').onclick=()=>speechSynthesis?.cancel();$('#clear').onclick=()=>{history=[];try{localStorage.removeItem('codis_history')}catch(e){}chat.innerHTML='';bubble('Chat and saved local memory cleared.','assistant')};
 $('#save').onclick=()=>{localStorage.setItem('codis_server',$('#api').value.trim());localStorage.setItem('codis_voice',$('#voice').checked?'1':'0');status.textContent='Preferences saved on this device'};
-$('#api').value=localStorage.getItem('codis_server')||'';$('#voice').checked=localStorage.getItem('codis_voice')!=='0';
+$('#api').value=localStorage.getItem('codis_server')||'';$('#voice').checked=localStorage.getItem('codis_voice')!=='0';restoreHistory();
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let recognition;
 if(SR){recognition=new SR();recognition.lang='en-NZ';recognition.interimResults=false;recognition.onstart=()=>status.textContent='Listening…';recognition.onresult=e=>{input.value=e.results[0][0].transcript;send()};recognition.onerror=e=>status.textContent='Mic error: '+e.error;recognition.onend=()=>{if(status.textContent==='Listening…')status.textContent='CODIS ready'}}
 $('#mic').onclick=()=>{if(recognition){try{recognition.start()}catch(e){status.textContent='Already listening'}}else status.textContent='Speech recognition unavailable in this browser; type instead.'};
