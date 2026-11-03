@@ -77,6 +77,30 @@ app.get("/api/capabilities", (_req, res) => res.json({
   status: process.env.GROQ_API_KEY ? "ready" : "awaiting_api_key"
 }));
 
+async function verifySupabaseSession(req) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) {
+    return { status: 503, error: "CODIS login is not configured yet. The server owner must configure Supabase authentication." };
+  }
+  const authorization = req.get("authorization") || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  if (!token || token.length > 8192) return { status: 401, error: "Please sign in to CODIS." };
+  try {
+    const response = await fetch(new URL("/auth/v1/user", supabaseUrl), {
+      headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) return { status: 401, error: "Your CODIS session is invalid or has expired. Please sign in again." };
+    const user = await response.json();
+    if (!user?.id) return { status: 401, error: "Your CODIS session could not be verified." };
+    return { user: { id: user.id, email: typeof user.email === "string" ? user.email : null } };
+  } catch (error) {
+    console.error("Authentication verification failed:", error);
+    return { status: 503, error: "CODIS could not verify your login right now. Please try again." };
+  }
+}
+
 app.post("/api/chat", async (req, res) => {
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   if (!message) return res.status(400).json({ error: "Message is required." });
@@ -84,6 +108,9 @@ app.post("/api/chat", async (req, res) => {
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return res.status(503).json({ error: "CODIS AI is not configured yet. The server owner must add GROQ_API_KEY in the hosting settings." });
+
+  const session = await verifySupabaseSession(req);
+  if (session.error) return res.status(session.status).json({ error: session.error });
 
   const history = Array.isArray(req.body?.history) ? req.body.history.slice(-10) : [];
   const safeHistory = history
