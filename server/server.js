@@ -103,5 +103,9 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, "0.0.0.0", () => console.log(`CODIS API listening on ${port}`));
+export { app };
+
+if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+  const port = process.env.PORT || 3000;
+  app.listen(port, "0.0.0.0", () => console.log(`CODIS API listening on ${port}`));
+}
