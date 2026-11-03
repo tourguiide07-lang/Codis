@@ -127,3 +127,29 @@ test("chat endpoint enforces its per-client request limit with a JSON error", as
   assert.match(lastResponse.headers.get("content-type") || "", /application\/json/i);
   assert.match(data.error, /Too many requests/i);
 });
+
+test("API rejects request bodies larger than the configured JSON limit", async () => {
+  const response = await fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "x".repeat(33_000) })
+  });
+  const data = await response.json();
+  assert.equal(response.status, 413);
+  assert.match(data.error, /too large/i);
+});
+
+test("Android WebView CORS preflight allows the chat request headers", async () => {
+  const response = await fetch(`${baseUrl}/api/chat`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "null",
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "content-type"
+    }
+  });
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("access-control-allow-origin"), "null");
+  assert.match(response.headers.get("access-control-allow-methods") || "", /POST/);
+  assert.match(response.headers.get("access-control-allow-headers") || "", /Content-Type/i);
+});
