@@ -108,16 +108,22 @@ test("malformed JSON receives a clean JSON error", async () => {
 });
 
 
-test("chat endpoint enforces its per-client request limit", async () => {
-  let lastResponse;
+test("chat endpoint enforces its per-client request limit with a JSON error", async () => {
+  const responses = [];
   for (let request = 0; request < 13; request += 1) {
-    lastResponse = await fetch(`${baseUrl}/api/chat`, {
+    responses.push(await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Forwarded-For": "203.0.113.42"
+      },
       body: JSON.stringify({ message: "rate-limit test" })
-    });
+    }));
   }
+  assert.ok(responses.slice(0, 12).every(response => response.status === 503));
+  const lastResponse = responses[12];
   const data = await lastResponse.json();
   assert.equal(lastResponse.status, 429);
-  assert.ok(data.error || lastResponse.headers.get("ratelimit-limit"));
+  assert.match(lastResponse.headers.get("content-type") || "", /application\\/json/i);
+  assert.match(data.error, /Too many requests/i);
 });
