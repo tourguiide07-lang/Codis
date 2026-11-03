@@ -4,6 +4,10 @@ import rateLimit from "express-rate-limit";
 
 const app = express();
 app.disable("x-powered-by");
+// Render sits behind a single trusted edge proxy. This lets rate limiting use
+// the real client IP rather than treating every visitor as the proxy.
+app.set("trust proxy", 1);
+
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -11,7 +15,23 @@ app.use((req, res, next) => {
   res.setHeader("Permissions-Policy", "camera=(), geolocation=()");
   next();
 });
-app.use(cors({ origin: true }));
+
+// Android WebViews commonly send Origin: null. Browser deployments should
+// explicitly add their frontend origins with CORS_ORIGINS (comma-separated).
+const allowedOrigins = new Set(
+  (process.env.CORS_ORIGINS || "null,http://localhost:3000,http://127.0.0.1:3000")
+    .split(",").map(value => value.trim()).filter(Boolean)
+);
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+  maxAge: 600
+}));
+
 app.use(express.json({ limit: "32kb" }));
 // Limit only the AI endpoint so health checks and capability discovery remain available.
 app.use("/api/chat", rateLimit({ windowMs: 60_000, max: 12, standardHeaders: true, legacyHeaders: false }));
@@ -109,6 +129,18 @@ app.post("/api/chat", async (req, res) => {
     console.error("AI request failed:", err);
     return res.status(502).json({ error: "Could not reach the AI provider. Please try again." });
   }
+});
+
+// Keep malformed or oversized JSON requests in the API's JSON error format.
+app.use((err, _req, res, _next) => {
+  if (err?.type === "entity.too.large") {
+    return res.status(413).json({ error: "Request body is too large." });
+  }
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({ error: "Request body must contain valid JSON." });
+  }
+  console.error("Unhandled request error:", err);
+  return res.status(500).json({ error: "An unexpected server error occurred." });
 });
 
 export { app };
