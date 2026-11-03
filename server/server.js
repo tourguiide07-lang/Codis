@@ -24,7 +24,7 @@ app.get("/api/capabilities", (_req, res) => res.json({
   provider: "Groq",
   reasoning: true,
   webSearch: true,
-  codeExecution: false,
+  codeExecution: true,
   conversationMemory: "device-local",
   persistentServerMemory: false,
   autonomousActions: false,
@@ -77,7 +77,7 @@ app.post("/api/chat", async (req, res) => {
         include_reasoning: false,
         tool_choice: "auto",
         citation_options: "enabled",
-        tools: [{ type: "browser_search" }]
+        tools: [{ type: "browser_search" }, { type: "code_interpreter" }]
       })
     });
 
