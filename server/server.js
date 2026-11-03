@@ -11,8 +11,8 @@ app.get("/", (_req, res) => res.json({ name: "CODIS API", status: "online" }));
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/api/chat", async (req, res) => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: "Server owner must configure OPENAI_API_KEY." });
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: "Server owner must configure GROQ_API_KEY in the hosting environment." });
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   if (!message) return res.status(400).json({ error: "Message is required." });
   if (message.length > 8000) return res.status(413).json({ error: "Message is too long." });
@@ -24,10 +24,10 @@ app.post("/api/chat", async (req, res) => {
     { role: "user", content: message }
   ];
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(process.env.AI_BASE_URL || "https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: process.env.OPENAI_MODEL || "gpt-4o-mini", messages, max_tokens: 700 })
+      body: JSON.stringify({ model: process.env.AI_MODEL || "openai/gpt-oss-120b", messages, max_tokens: 1200, reasoning_effort: "medium" })
     });
     const data = await response.json();
     if (!response.ok) {
