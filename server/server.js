@@ -41,6 +41,7 @@ app.use(express.json({ limit: "32kb" }));
 app.use(rateLimit({
   windowMs: 15 * 60_000,
   max: 300,
+  message: { error: "Too many requests. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
   skip: req => req.path === "/health"
@@ -48,6 +49,7 @@ app.use(rateLimit({
 app.use("/api/chat", rateLimit({
   windowMs: 60_000,
   max: 12,
+  message: { error: "Too many requests. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false
 }));
