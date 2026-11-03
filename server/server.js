@@ -76,12 +76,12 @@ app.get("/api/capabilities", (_req, res) => res.json({
 }));
 
 app.post("/api/chat", async (req, res) => {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: "CODIS AI is not configured yet. The server owner must add GROQ_API_KEY in the hosting settings." });
-
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   if (!message) return res.status(400).json({ error: "Message is required." });
   if (message.length > 8000) return res.status(413).json({ error: "Message is too long." });
+
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: "CODIS AI is not configured yet. The server owner must add GROQ_API_KEY in the hosting settings." });
 
   const history = Array.isArray(req.body?.history) ? req.body.history.slice(-10) : [];
   const safeHistory = history
