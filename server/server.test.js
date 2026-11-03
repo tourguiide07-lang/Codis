@@ -58,6 +58,9 @@ test("security headers are present on API responses", async () => {
   assert.equal(response.headers.get("x-powered-by"), null);
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("x-frame-options"), "DENY");
+  assert.match(response.headers.get("strict-transport-security") || "", /max-age=31536000/);
+  assert.match(response.headers.get("content-security-policy") || "", /default-src 'none'/);
+  assert.equal(response.headers.get("cache-control"), "no-store");
 });
 
 test("chat endpoint rejects an empty message", async () => {
