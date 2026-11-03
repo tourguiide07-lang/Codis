@@ -81,3 +81,25 @@ test("chat endpoint rejects oversized messages", async () => {
   assert.equal(response.status, 413);
   assert.match(data.error, /too long/i);
 });
+test("CORS allows the Android WebView null origin", async () => {
+  const response = await fetch(`${baseUrl}/health`, { headers: { Origin: "null" } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("access-control-allow-origin"), "null");
+});
+
+test("CORS does not reflect an untrusted website origin", async () => {
+  const response = await fetch(`${baseUrl}/health`, { headers: { Origin: "https://untrusted.example" } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("access-control-allow-origin"), null);
+});
+
+test("malformed JSON receives a clean JSON error", async () => {
+  const response = await fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{ invalid json"
+  });
+  const data = await response.json();
+  assert.equal(response.status, 400);
+  assert.match(data.error, /valid JSON/i);
+});
