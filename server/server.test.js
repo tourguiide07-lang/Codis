@@ -124,6 +124,6 @@ test("chat endpoint enforces its per-client request limit with a JSON error", as
   const lastResponse = responses[12];
   const data = await lastResponse.json();
   assert.equal(lastResponse.status, 429);
-  assert.match(lastResponse.headers.get("content-type") || "", /application\\/json/i);
+  assert.match(lastResponse.headers.get("content-type") || "", /application\/json/i);
   assert.match(data.error, /Too many requests/i);
 });
